@@ -38,7 +38,7 @@ async function runTask(ecs, clusterName, taskDefArn, waitForMinutes) {
   if (securityGroupIds != "") {
     awsvpcConfiguration["securityGroups"] = securityGroupIds.split(',')
   }
-  
+
   const runTaskResponse = await ecs.runTask({
     startedBy: startedBy,
     cluster: clusterName,
@@ -373,6 +373,7 @@ async function run() {
     // Register the task definition or use passed in ARN
     let taskDefArn;
     if (shouldUseTaskARN) {
+      core.debug(`Using pre-existing task definition: ${taskDefinitionFile}`)
       taskDefArn = taskDefinitionFile;
     } else {
       core.debug('Registering the task definition');
