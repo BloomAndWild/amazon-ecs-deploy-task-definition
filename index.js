@@ -38,7 +38,7 @@ async function runTask(ecs, clusterName, taskDefArn, waitForMinutes) {
   if (securityGroupIds != "") {
     awsvpcConfiguration["securityGroups"] = securityGroupIds.split(',')
   }
-
+  console.log(awsvpcConfiguration)
   const runTaskResponse = await ecs.runTask({
     startedBy: startedBy,
     cluster: clusterName,
@@ -367,23 +367,31 @@ async function run() {
     const forceNewDeployInput = core.getInput('force-new-deployment', { required: false }) || 'false';
     const forceNewDeployment = forceNewDeployInput.toLowerCase() === 'true';
 
-    // Register the task definition
-    core.debug('Registering the task definition');
-    const taskDefPath = path.isAbsolute(taskDefinitionFile) ?
-      taskDefinitionFile :
-      path.join(process.env.GITHUB_WORKSPACE, taskDefinitionFile);
-    const fileContents = fs.readFileSync(taskDefPath, 'utf8');
-    const taskDefContents = maintainValidObjects(removeIgnoredAttributes(cleanNullKeys(yaml.parse(fileContents))));
-    let registerResponse;
-    try {
-      registerResponse = await ecs.registerTaskDefinition(taskDefContents).promise();
-    } catch (error) {
-      core.setFailed("Failed to register task definition in ECS: " + error.message);
-      core.debug("Task definition contents:");
-      core.debug(JSON.stringify(taskDefContents, undefined, 4));
-      throw(error);
+    const shouldUseTaskARNInput = core.getInput('run-task-use-arn', { required: false }) || 'false';
+    const shouldUseTaskARN = shouldUseTaskARNInput.toLowerCase() === 'true';
+
+    // Register the task definition or use passed in ARN
+    let taskDefArn;
+    if (shouldUseTaskARN) {
+      taskDefArn = taskDefinitionFile;
+    } else {
+      core.debug('Registering the task definition');
+      const taskDefPath = path.isAbsolute(taskDefinitionFile) ?
+        taskDefinitionFile :
+        path.join(process.env.GITHUB_WORKSPACE, taskDefinitionFile);
+      const fileContents = fs.readFileSync(taskDefPath, 'utf8');
+      const taskDefContents = maintainValidObjects(removeIgnoredAttributes(cleanNullKeys(yaml.parse(fileContents))));
+      let registerResponse;
+      try {
+        registerResponse = await ecs.registerTaskDefinition(taskDefContents).promise();
+      } catch (error) {
+        core.setFailed("Failed to register task definition in ECS: " + error.message);
+        core.debug("Task definition contents:");
+        core.debug(JSON.stringify(taskDefContents, undefined, 4));
+        throw(error);
+      }
+      taskDefArn = registerResponse.taskDefinition.taskDefinitionArn;
     }
-    const taskDefArn = registerResponse.taskDefinition.taskDefinitionArn;
     core.setOutput('task-definition-arn', taskDefArn);
 
     // Run the task outside of the service
