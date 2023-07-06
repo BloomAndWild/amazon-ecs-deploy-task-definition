@@ -38,7 +38,7 @@ async function runTask(ecs, clusterName, taskDefArn, waitForMinutes) {
   if (securityGroupIds != "") {
     awsvpcConfiguration["securityGroups"] = securityGroupIds.split(',')
   }
-  console.log(awsvpcConfiguration)
+  
   const runTaskResponse = await ecs.runTask({
     startedBy: startedBy,
     cluster: clusterName,
