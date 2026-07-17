@@ -495,3 +495,15 @@ EOF
 - **Placeholder scan:** no TBD/TODO; every code step shows concrete code; the one deferred item (staging smoke-deploy) is explicitly conditional on infra availability, per spec.
 - **Type/name consistency:** client vars `ecs`/`codedeploy`; mock fns named consistently between Task 2 step 2 (test) and the operations they back; waiter fns `waitUntilTasksStopped`/`waitUntilServicesStable`/`waitUntilDeploymentSuccessful` used identically in source (Task 2 step 6) and test (Task 2 step 2); constants `MAX_WAIT_MINUTES`/`WAIT_DEFAULT_DELAY_SEC` retained and referenced.
 - **Deviation from spec (recorded):** test approach uses `jest.mock` of the v3 modules rather than `aws-sdk-client-mock`; spec Workstream 4 was updated with rationale (upstream's proven, smaller-diff pattern).
+
+---
+
+## Implementation outcome notes (post-execution, 2026-07-17)
+
+Recorded after the branch was implemented and reviewed, correcting/clarifying details this plan drafted ahead of the actual dependency resolution:
+
+- **Resolved dependency versions** (plan said "install `@latest`, floor `^9`" — these are what npm actually resolved): `eslint@^10.7.0` and `@eslint/js@^10.0.1` (i.e. **eslint 10**, not 9 — the flat-config work is identical and satisfies the `^9` floor), `globals@^17.7.0`, `jest@^30.4.2`, `@aws-sdk/client-ecs@^3.1089.0`, `@aws-sdk/client-codedeploy@^3.1089.0`. Read every "eslint 9" reference above as "eslint 10".
+- **`@actions/core` held at exactly `1.10.1`** (not the draft's `^1.11.1`): `>=1.11.0` transitively loads `@actions/io`'s `io-util.js`, which reads `fs.constants` at import and crashes `index.test.js`'s `jest.mock('fs')`. Pinned exactly (no caret) with a matching Dependabot ignore rule to prevent a silent lockfile-only regression.
+- **Waiter poll cadence clarification** (Task 2 Step 6): setting `minDelay: WAIT_DEFAULT_DELAY_SEC` (15s) does NOT hold a fixed 15-second cadence. v3 waiters use exponential backoff from `minDelay` up to the SDK's service default `maxDelay`. The **total `maxWaitTime` cap is preserved**, so observable timeout behavior is unchanged; only intermediate polling frequency differs (fewer API calls). The "preserving the 15-second poll cadence" wording above is inaccurate in that narrow sense.
+- **One behavior-identical source cleanup** (`index.js`, `runTask`): the dead `networkConfiguration: awsvpcConfiguration === {} ? {} : {...}` ternary (condition always false — object reference comparison) was collapsed to its only reachable branch when eslint 10's `no-constant-binary-expression` flagged it. Provably behavior-identical.
+- **Every branch commit was green** (verified): the intermediate Task 1 commit's lockfile already resolved `@actions/core` to `1.10.1`, so its `npm test` passed.
