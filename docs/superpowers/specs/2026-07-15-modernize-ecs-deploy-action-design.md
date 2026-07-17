@@ -88,10 +88,19 @@ suite green and `dist/` rebuilt, and **no observable change in the action's beha
 
 - `index.test.js` (1,421 lines, 20 v2 `promise()` stubs) is written against the v2 mock
   idiom, which v3 breaks.
-- Rewrite the AWS mocking to **`aws-sdk-client-mock`** (the v3 testing standard, also used
-  upstream). Add it as a dev dependency.
+- **Approach (revised during planning):** re-point the existing `jest.mock(...)` blocks at
+  `@aws-sdk/client-ecs` / `@aws-sdk/client-codedeploy` rather than introducing
+  `aws-sdk-client-mock`. Inspection of upstream's completed v3 migration (our reference)
+  shows they kept the `jest.mock` module-mock structure — mocking the aggregated client
+  methods to return promises directly, mocking `config.region` as
+  `() => Promise.resolve('fake-region')`, and exposing `waitUntil*` as `jest.fn()`s. This is
+  a smaller, lower-risk diff than a full `aws-sdk-client-mock` rewrite and needs no new
+  runtime-mock dependency. (Original plan named `aws-sdk-client-mock`; superseded for the
+  reasons above.)
 - **Preserve every existing test case and assertion** — this is a translation of the mock
-  layer, not a redesign of coverage.
+  layer, not a redesign of coverage. In particular, keep BloomAndWild's existing console-URL
+  formats in assertions unchanged (they differ from upstream's; we are not adopting upstream's
+  URL format).
 
 ## Verification
 
