@@ -6,3 +6,10 @@ updates:
     interval: weekly
     day: tuesday
   open-pull-requests-limit: 10
+  ignore:
+    # @actions/core >= 1.11.0 pulls in @actions/io, whose io-util.js reads
+    # fs.constants at import time and crashes the fs mock in index.test.js.
+    # Pinned to 1.10.x until the test's fs mock is broadened. See
+    # docs/superpowers/plans/2026-07-17-modernize-ecs-deploy-action.md.
+    - dependency-name: "@actions/core"
+      versions: [">=1.11.0"]
