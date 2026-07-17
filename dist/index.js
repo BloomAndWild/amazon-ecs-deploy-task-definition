@@ -56,6 +56,17 @@ async function runTask(ecs, clusterName, taskDefArn, waitForMinutes) {
       containerOverrides: containerOverrides
     },
     launchType: launchType,
+    // KNOWN LATENT BUG (pre-existing, carried over from the aws-sdk v2 version):
+    // when run-task-subnets and run-task-security-groups are both empty,
+    // awsvpcConfiguration is {} and ECS RunTask rejects it because `subnets` is
+    // required. The original v2 code tried to guard this with
+    // `awsvpcConfiguration === {} ? {} : {...}`, but that is a reference
+    // comparison against a fresh object literal — always false — so it never
+    // omitted the empty config. Harmless for our FARGATE-with-subnets usage
+    // (awsvpcConfiguration is always populated), but it would break ad-hoc EC2
+    // launch-type tasks that need no VPC config. To fix later, omit
+    // networkConfiguration entirely when awsvpcConfiguration has no keys, e.g.
+    // `...(Object.keys(awsvpcConfiguration).length > 0 ? { networkConfiguration: { awsvpcConfiguration } } : {})`.
     networkConfiguration: { awsvpcConfiguration: awsvpcConfiguration }
   });
 
