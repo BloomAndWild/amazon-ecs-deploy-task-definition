@@ -1,6 +1,7 @@
 const path = require('path');
 const core = require('@actions/core');
-const aws = require('aws-sdk');
+const { ECS, waitUntilServicesStable, waitUntilTasksStopped } = require('@aws-sdk/client-ecs');
+const { CodeDeploy, waitUntilDeploymentSuccessful } = require('@aws-sdk/client-codedeploy');
 const yaml = require('yaml');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -39,6 +40,8 @@ async function runTask(ecs, clusterName, taskDefArn, waitForMinutes) {
     awsvpcConfiguration["securityGroups"] = securityGroupIds.split(',')
   }
 
+  const region = await ecs.config.region();
+
   const runTaskResponse = await ecs.runTask({
     startedBy: startedBy,
     cluster: clusterName,
@@ -48,13 +51,13 @@ async function runTask(ecs, clusterName, taskDefArn, waitForMinutes) {
     },
     launchType: launchType,
     networkConfiguration: { awsvpcConfiguration: awsvpcConfiguration }
-  }).promise();
+  });
 
   core.debug(`Run task response ${JSON.stringify(runTaskResponse)}`)
 
   const taskArns = runTaskResponse.tasks.map(task => task.taskArn);
   core.setOutput('run-task-arn', taskArns);
-  core.info(`Task running: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${clusterName}/tasks`);
+  core.info(`Task running: https://console.aws.amazon.com/ecs/home?region=${region}#/clusters/${clusterName}/tasks`);
   core.info(`Task ARN: ${taskArns}`);
 
   if (runTaskResponse.failures && runTaskResponse.failures.length > 0) {
@@ -79,14 +82,10 @@ async function waitForTasksStopped(ecs, clusterName, taskArns, waitForMinutes) {
 
   core.info(`Waiting for tasks to stop. Will wait for ${waitForMinutes} minutes`);
 
-  const waitTaskResponse = await ecs.waitFor('tasksStopped', {
-    cluster: clusterName,
-    tasks: taskArns,
-    $waiter: {
-      delay: WAIT_DEFAULT_DELAY_SEC,
-      maxAttempts: (waitForMinutes * 60) / WAIT_DEFAULT_DELAY_SEC
-    }
-  }).promise();
+  const waitTaskResponse = await waitUntilTasksStopped(
+    { client: ecs, maxWaitTime: waitForMinutes * 60, minDelay: WAIT_DEFAULT_DELAY_SEC },
+    { cluster: clusterName, tasks: taskArns }
+  );
 
   core.debug(`Run task response ${JSON.stringify(waitTaskResponse)}`);
   core.info(`SUCCESS - task ${taskArns} completed`);
@@ -97,7 +96,7 @@ async function tasksExitCode(ecs, clusterName, taskArns) {
   const describeResponse = await ecs.describeTasks({
     cluster: clusterName,
     tasks: taskArns
-  }).promise();
+  });
 
   const containers = [].concat(...describeResponse.tasks.map(task => task.containers))
   const exitCodes = containers.map(container => container.exitCode)
@@ -125,24 +124,20 @@ async function updateEcsService(ecs, clusterName, service, taskDefArn, waitForSe
     service: service,
     taskDefinition: taskDefArn,
     forceNewDeployment: forceNewDeployment
-  }).promise();
+  });
 
-  const consoleHostname = aws.config.region.startsWith('cn') ? 'console.amazonaws.cn' : 'console.aws.amazon.com';
+  const region = await ecs.config.region();
+  const consoleHostname = region.startsWith('cn') ? 'console.amazonaws.cn' : 'console.aws.amazon.com';
 
-  core.info(`Deployment started. Watch this deployment's progress in the Amazon ECS console: https://${consoleHostname}/ecs/home?region=${aws.config.region}#/clusters/${clusterName}/services/${service}/events`);
+  core.info(`Deployment started. Watch this deployment's progress in the Amazon ECS console: https://${consoleHostname}/ecs/home?region=${region}#/clusters/${clusterName}/services/${service}/events`);
 
   // Wait for service stability
   if (waitForService && waitForService.toLowerCase() === 'true') {
     core.debug(`Waiting for the service to become stable. Will wait for ${waitForMinutes} minutes`);
-    const maxAttempts = (waitForMinutes * 60) / WAIT_DEFAULT_DELAY_SEC;
-    await ecs.waitFor('servicesStable', {
-      services: [service],
-      cluster: clusterName,
-      $waiter: {
-        delay: WAIT_DEFAULT_DELAY_SEC,
-        maxAttempts: maxAttempts
-      }
-    }).promise();
+    await waitUntilServicesStable(
+      { client: ecs, maxWaitTime: waitForMinutes * 60, minDelay: WAIT_DEFAULT_DELAY_SEC },
+      { services: [service], cluster: clusterName }
+    );
   } else {
     core.debug('Not waiting for the service to become stable');
   }
@@ -277,7 +272,7 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
   let deploymentGroupDetails = await codedeploy.getDeploymentGroup({
     applicationName: codeDeployApp,
     deploymentGroupName: codeDeployGroup
-  }).promise();
+  });
   deploymentGroupDetails = deploymentGroupDetails.deploymentGroupInfo;
 
   // Insert the task def ARN into the appspec file
@@ -318,9 +313,10 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
     // CodeDeploy Deployment Descriptions have a max length of 512 characters, so truncate if necessary
     deploymentParams.description = (codeDeployDescription.length <= 512) ? codeDeployDescription : `${codeDeployDescription.substring(0,511)}…`;
   }
-  const createDeployResponse = await codedeploy.createDeployment(deploymentParams).promise();
+  const createDeployResponse = await codedeploy.createDeployment(deploymentParams);
   core.setOutput('codedeploy-deployment-id', createDeployResponse.deploymentId);
-  core.info(`Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${aws.config.region}`);
+  const region = await codedeploy.config.region();
+  core.info(`Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${region}`);
 
   // Wait for deployment to complete
   if (waitForService && waitForService.toLowerCase() === 'true') {
@@ -331,16 +327,11 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
     if (totalWaitMin > MAX_WAIT_MINUTES) {
       totalWaitMin = MAX_WAIT_MINUTES;
     }
-    const maxAttempts = (totalWaitMin * 60) / WAIT_DEFAULT_DELAY_SEC;
-
     core.debug(`Waiting for the deployment to complete. Will wait for ${totalWaitMin} minutes`);
-    await codedeploy.waitFor('deploymentSuccessful', {
-      deploymentId: createDeployResponse.deploymentId,
-      $waiter: {
-        delay: WAIT_DEFAULT_DELAY_SEC,
-        maxAttempts: maxAttempts
-      }
-    }).promise();
+    await waitUntilDeploymentSuccessful(
+      { client: codedeploy, maxWaitTime: totalWaitMin * 60, minDelay: WAIT_DEFAULT_DELAY_SEC },
+      { deploymentId: createDeployResponse.deploymentId }
+    );
   } else {
     core.debug('Not waiting for the deployment to complete');
   }
@@ -348,10 +339,10 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
 
 async function run() {
   try {
-    const ecs = new aws.ECS({
+    const ecs = new ECS({
       customUserAgent: 'amazon-ecs-deploy-task-definition-for-github-actions'
     });
-    const codedeploy = new aws.CodeDeploy({
+    const codedeploy = new CodeDeploy({
       customUserAgent: 'amazon-ecs-deploy-task-definition-for-github-actions'
     });
 
@@ -385,7 +376,7 @@ async function run() {
       const taskDefContents = maintainValidObjects(removeIgnoredAttributes(cleanNullKeys(yaml.parse(fileContents))));
       let registerResponse;
       try {
-        registerResponse = await ecs.registerTaskDefinition(taskDefContents).promise();
+        registerResponse = await ecs.registerTaskDefinition(taskDefContents);
       } catch (error) {
         core.setFailed("Failed to register task definition in ECS: " + error.message);
         core.debug("Task definition contents:");
@@ -412,7 +403,7 @@ async function run() {
       const describeResponse = await ecs.describeServices({
         services: [service],
         cluster: clusterName
-      }).promise();
+      });
 
       if (describeResponse.failures && describeResponse.failures.length > 0) {
         const failure = describeResponse.failures[0];
