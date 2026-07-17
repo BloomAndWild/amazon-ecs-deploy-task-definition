@@ -14,6 +14,7 @@ Registers an Amazon ECS task definition and deploys it to an ECS service.
 - [AWS CodeDeploy Support](#aws-codedeploy-support)
 - [Running Tasks](#running-tasks)
 - [Troubleshooting](#troubleshooting)
+- [Fork maintenance notes](#fork-maintenance-notes)
 - [License Summary](#license-summary)
 - [Security Disclosures](#security-disclosures)
 
@@ -249,6 +250,14 @@ Overrides and VPC networking options are available as well. See [action.yml](act
 ## Troubleshooting
 
 This action emits debug logs to help troubleshoot deployment failures.  To see the debug logs, create a secret named `ACTIONS_STEP_DEBUG` with value `true` in your repository.
+
+## Fork maintenance notes
+
+This is BloomAndWild's fork of [`aws-actions/amazon-ecs-deploy-task-definition`](https://github.com/aws-actions/amazon-ecs-deploy-task-definition), intentionally diverged from upstream. Notes for maintainers:
+
+- **CodeDeploy on AWS SDK v3.** The action was migrated from AWS SDK v2 (`aws-sdk`) to v3 (`@aws-sdk/client-ecs`, `@aws-sdk/client-codedeploy`) and runs on the Node 24 runtime.
+- **CodeQL removed (2026-07-17).** The upstream CodeQL code-scanning workflow (`.github/workflows/codeql-analysis.yml`) was deleted, and its two required status checks (`Analyze (javascript)` and `CodeQL`) were removed from `main`'s branch protection. The workflow had been auto-disabled by GitHub after 60 days of fork inactivity (`disabled_inactivity`); because a disabled workflow fires none of its triggers, those two required checks could never report and silently blocked every PR from merging. We do not use code scanning on this fork. If you want it back, re-add a code-scanning workflow (or enable GitHub code scanning "default setup") and re-add the corresponding required checks to branch protection.
+- **CI workflows.** `check.yml` runs the unit tests; `package.yml` rebuilds and verifies the committed `dist/` bundle. Both are required on `main`, along with the `Semantic Pull Request` title check.
 
 ## License Summary
 

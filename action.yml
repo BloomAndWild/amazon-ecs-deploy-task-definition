@@ -66,5 +66,5 @@ outputs:
   run-task-arn:
     description: 'The ARN of the invoked ECS task'
 runs:
-  using: 'node16'
+  using: 'node24'
   main: 'dist/index.js'
