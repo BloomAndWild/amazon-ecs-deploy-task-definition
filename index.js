@@ -47,7 +47,7 @@ async function runTask(ecs, clusterName, taskDefArn, waitForMinutes) {
       containerOverrides: containerOverrides
     },
     launchType: launchType,
-    networkConfiguration: awsvpcConfiguration === {} ? {} : { awsvpcConfiguration: awsvpcConfiguration }
+    networkConfiguration: { awsvpcConfiguration: awsvpcConfiguration }
   }).promise();
 
   core.debug(`Run task response ${JSON.stringify(runTaskResponse)}`)

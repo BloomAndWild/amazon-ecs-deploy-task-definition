@@ -223,7 +223,7 @@ describe('Deploy to ECS', () => {
             forceNewDeployment: false
         });
         expect(mockEcsWaiter).toHaveBeenCalledTimes(0);
-        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=fake-region#/clusters/cluster-789/services/service-456/events");
+        expect(core.info).toHaveBeenCalledWith("Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=fake-region#/clusters/cluster-789/services/service-456/events");
     });
 
     test('registers the task definition contents and updates the service if deployment controller type is ECS', async () => {
@@ -258,7 +258,7 @@ describe('Deploy to ECS', () => {
             forceNewDeployment: false
         });
         expect(mockEcsWaiter).toHaveBeenCalledTimes(0);
-        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=fake-region#/clusters/cluster-789/services/service-456/events");
+        expect(core.info).toHaveBeenCalledWith("Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=fake-region#/clusters/cluster-789/services/service-456/events");
     });
 
     test('prints Chinese console domain for cn regions', async () => {
@@ -266,7 +266,7 @@ describe('Deploy to ECS', () => {
         config.region = 'cn-fake-region';
         await run();
 
-        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.amazonaws.cn/ecs/home?region=cn-fake-region#/clusters/cluster-789/services/service-456/events");
+        expect(core.info).toHaveBeenCalledWith("Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.amazonaws.cn/ecs/home?region=cn-fake-region#/clusters/cluster-789/services/service-456/events");
 
         // reset
         config.region = originalRegion;
@@ -588,7 +588,7 @@ describe('Deploy to ECS', () => {
         expect(mockEcsUpdateService).toHaveBeenCalledTimes(0);
         expect(mockEcsWaiter).toHaveBeenCalledTimes(0);
 
-        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/deployment-1?region=fake-region");
+        expect(core.info).toHaveBeenCalledWith("Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/deployment-1?region=fake-region");
     });
 
     test('registers the task definition contents and creates a CodeDeploy deployment, waits for 1 hour + deployment group\'s wait time', async () => {
@@ -942,7 +942,7 @@ describe('Deploy to ECS', () => {
         expect(mockEcsUpdateService).toHaveBeenCalledTimes(0);
         expect(mockEcsWaiter).toHaveBeenCalledTimes(0);
 
-        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/deployment-1?region=fake-region");
+        expect(core.info).toHaveBeenCalledWith("Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/deployment-1?region=fake-region");
     });
 
     test('registers the task definition contents and creates a CodeDeploy deployment with custom application, deployment group and long description', async () => {
@@ -1026,7 +1026,7 @@ describe('Deploy to ECS', () => {
         expect(mockEcsUpdateService).toHaveBeenCalledTimes(0);
         expect(mockEcsWaiter).toHaveBeenCalledTimes(0);
 
-        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/deployment-1?region=fake-region");
+        expect(core.info).toHaveBeenCalledWith("Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/deployment-1?region=fake-region");
     });
 
      test('registers the task definition contents at an absolute path', async () => {
@@ -1343,7 +1343,7 @@ describe('Deploy to ECS', () => {
 
         await run();
 
-        expect(core.setFailed).toBeCalledWith("AppSpec file must include property 'resources'");
+        expect(core.setFailed).toHaveBeenCalledWith("AppSpec file must include property 'resources'");
     });
 
     test('error is caught if service does not exist', async () => {
@@ -1363,7 +1363,7 @@ describe('Deploy to ECS', () => {
 
         await run();
 
-        expect(core.setFailed).toBeCalledWith('hello is MISSING');
+        expect(core.setFailed).toHaveBeenCalledWith('hello is MISSING');
     });
 
     test('error is caught if service is inactive', async () => {
@@ -1382,7 +1382,7 @@ describe('Deploy to ECS', () => {
 
         await run();
 
-        expect(core.setFailed).toBeCalledWith('Service is INACTIVE');
+        expect(core.setFailed).toHaveBeenCalledWith('Service is INACTIVE');
     });
 
     test('error is caught if service uses external deployment controller', async () => {
@@ -1404,7 +1404,7 @@ describe('Deploy to ECS', () => {
 
         await run();
 
-        expect(core.setFailed).toBeCalledWith('Unsupported deployment controller: EXTERNAL');
+        expect(core.setFailed).toHaveBeenCalledWith('Unsupported deployment controller: EXTERNAL');
     });
 
     test('error is caught if task def registration fails', async () => {
